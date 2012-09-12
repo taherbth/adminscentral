@@ -59,9 +59,12 @@ class Orgadmin extends BaseController {
             $this->load->view('frontend/login_form_user');
         } else {   
             $username = $this->input->post('username');
-            $password = base64_encode($this->input->post('password'));
-            $query1 = $this->db->query("SELECT * FROM user_info WHERE (email='" . $username . "' && password='" . $password . "'and login_status=2) || (username='" . $username . "' and password='" . $password . "'and login_status=2) || (person_number='" . $username . "' and password='" . $password . "'and login_status=2)");
-
+            //$password = base64_encode($this->input->post('password'));
+            //$query1 = $this->db->query("SELECT * FROM user_info WHERE (email='" . $username . "' && password='" . $password . "'and login_status=2) || (username='" . $username . "' and password='" . $password . "'and login_status=2) || (person_number='" . $username . "' and password='" . $password . "'and login_status=2)");
+           
+            $password = $this->encrypt($this->input->post('password'),'vaccitvassit'); 
+            $query1 = $this->db->query("SELECT * FROM admin_users WHERE username='".$username."' and password='".$password."'");
+            
             if ($query1->num_rows() == 1) {
                 foreach ($query1->result() as $info):
                     $user_id = $info->id;

@@ -145,7 +145,7 @@
 
 </script>
 
-<?php echo form_open("admin/info/added_customer_step3"); ?>
+<?php echo form_open("main/added_customer_step3"); ?>
 <?php echo $this->session->flashdata('message'); ?>
 
 <div class="infobox" style="width: 900px; margin-bottom: 20px; margin-left:10px; font-size: 12px; -moz-border-radius: 8px 8px 8px 8px;">

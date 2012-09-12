@@ -163,53 +163,13 @@ function view_cost($start=0, $perPage=0) {
         $query = $this->db->query("select * from cost where package_name='" . $p_name . "'");
         return $query->result();
     }
-    //cost insert,delete,update end
-    
-/**
- * Get New Customer Data
- *
- *@Param $org_id which contains org_id
- *@access public
- *@return New Customer Data
-*/
-    function get_new_customer_orders($org_id) {
-        
-        $this->db->select('*');
-        $this->db->from('member');
-        $this->db->join('organization_info', 'member.org_id = organization_info.id','left');  
-        $this->db->where('user_type','Admin');        
-        if($org_id){
-            $this->db->where('organization_info.id',$org_id);
-        }
-        $this->db->order_by("organization_info.id", "DESC");
-        $query= $this->db->get();
-        return $query->result();
-            
-       // $query = $this->db->query("select * from user_info where login_status=0 || login_status=1  order by id DESC");
-        
-}
 
-/**
- * Get Customer billing info
- *
- *@Param $org_id which contains org_id
- *@access public
- *@return Customer billing info
-*/
-    function get_customer_billing_info($org_id) {  
-        $this->db->select('*');
-        $this->db->from('org_billing_info');
-        $this->db->join('organization_info', 'org_billing_info.org_id = organization_info.id','left');  
-        if($org_id){
-            $this->db->where('org_billing_info.org_id',$org_id);
-        }
-        //$this->db->order_by("organization_info.id", "DESC");
-        $query= $this->db->get();
+    //cost insert,delete,update end
+    //get organisation application
+    function get_org_message() {
+        $query = $this->db->query("select * from user_info where login_status=0 || login_status=1  order by id DESC");
         return $query->result();
-            
-       // $query = $this->db->query("select * from user_info where login_status=0 || login_status=1  order by id DESC");
-        
-}
+    }
 
     function update_org_deny($data, $id) {
 
@@ -247,34 +207,12 @@ function view_cost($start=0, $perPage=0) {
 
     function update_org_approve($data, $id) {
         $this->db->where('id', $id);
-        $this->db->update('organization_info', $data);
-        return ($this->db->affected_rows() > 0) ? TRUE : FALSE;	
+        $this->db->update('user_info', $data);
     }
 
-/**
- * Get Registered Customer Data
- *
- *@Param $org_id which contains org_id
- *@access public
- *@return Registered Customer Data
-*/
-  function get_registered_customer($org_id) {
-        //$query = $this->db->query("select * from user_info where login_status=2 order by id DESC");
-        //return $query->result();
-        $this->db->select('*');
-        $this->db->from('member');
-        $this->db->join('organization_info', 'member.org_id = organization_info.id','left');  
-        $this->db->where('user_type','Admin');      
-        $this->db->where('organization_info.approval_status',1);
-        if($org_id){
-            $this->db->where('organization_info.id',$org_id);
-        }
-        $this->db->order_by("organization_info.id", "DESC");
-        $query= $this->db->get();
+    function get_registered_customer() {
+        $query = $this->db->query("select * from user_info where login_status=2 order by id DESC");
         return $query->result();
-            
-       // $query = $this->db->query("select * from user_info where login_status=0 || login_status=1  order by id DESC");
-        
     }
 
     function get_existing_package($p_name,$id) {
@@ -472,39 +410,8 @@ function register_organisation($data_organization,$data_admin_user,$data_billing
     if($bill_id){
         return TRUE;
    }
-    else return FALSE;    
+    else return FALSE;
+    
 }
-
-/**
- * Get package info from Table: package
- *
- *@Param $org_id which contains org_id
- *@access public
- *@return package info
-*/
-function get_package_info($org_id){
-    $this->db->select('*');
-    $this->db->from('organization_info');
-    $this->db->join('package', 'organization_info.package_name = package.id','left');  
-    $this->db->where('organization_info.id',$org_id);
-    $query= $this->db->get();
-    return $query->result();
-}
-
-/**
- * Remove organization info and memebr info by denying org
- *
- *@Param $org_id which contains org_id
- *@access public
- *@return package info
-*/
-function org_deny($org_id) {
-        $this->db->delete('organization_info', array('id' => $org_id));
-        if($this->db->affected_rows() > 0){
-            $this->db->delete('member', array('org_id' => $org_id));
-            return ($this->db->affected_rows() > 0) ? TRUE : FALSE;
-        }
-        else{return FALSE;}
-    }
 }
 

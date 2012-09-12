@@ -9,7 +9,10 @@ if($cid ==""){
  echo "<font color='red'>Please Input an Organization Number</font>";
 }
 else{
-$result = mysql_query("select org_number from user_info where org_number='" . $cid . "'");
+    
+    
+//$result = mysql_query("select org_number from user_info where org_number='" . $cid . "'");
+$result = mysql_query("select org_number from organization_info where org_number='" . $cid . "'");
 //print_r($ad_package);die();
 if(mysql_num_rows($result)>0){
  echo "<font color='red'>Organization Number Exists.</font>";

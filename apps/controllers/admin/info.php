@@ -244,7 +244,7 @@ class info extends BaseController {
                     'letter_cost' => $this->input->post('letter_cost'),
                     'currency_id' => $this->input->post('currency_id'),
                     'add_date' =>$to_date
-       );    
+       );     
      
         if ($this->form_validation->run() == FALSE) {
             $this->data['dynamicView'] = 'pages/admin/package/entry';
@@ -374,7 +374,7 @@ class info extends BaseController {
         $this->lang->load('configuration', $this->session->userdata('lang_file'));
         $this->data['mainTab'] = 'configuration';
         $this->data['activeTab'] = 'global_settings';
-        $data['global_settings_data'] = $this->info_model->get_global_settings();
+        $data['global_settings_data'] = $this->info_model->get_global_settings();        
         $this->load->vars($data);	
         $this->data['dynamicView'] = 'pages/admin/global_settings/entry';
         $this->_commonPageLayout('frontend_viewer');
@@ -502,24 +502,26 @@ class info extends BaseController {
         redirect('admin/info/view_cost', 'location', 301);
     }
 
-//end cost setting
-//show organization message
+//End cost setting
+
+//Show new customer List
     function view_organisation_message() {
         $this->lang->load('orders', $this->session->userdata('lang_file'));
         $this->data['mainTab'] = 'orders';
         $this->data['activeTab'] = 'message';
-        $this->data['query1'] = $this->info_model->get_org_message();
+        $this->data['query1'] = $this->info_model->get_new_customer_orders($org_id="");
         $this->data['dynamicView'] = 'pages/admin/registered_customer/show';
         $this->_commonPageLayout('frontend_viewer');
     }
 
     function deny_org($id) {
-         $this->data['mainTab'] = 'inbox';
-        $this->data['activeTab'] = 'message';
-        $data = array(
-            'login_status' => 3
-        );
-        $this->info_model->update_org_deny($data, $id);
+        $this->lang->load('orders', $this->session->userdata('lang_file'));
+        $this->data['mainTab'] = 'orders';
+        $this->data['activeTab'] = 'message';        
+        $success = $this->info_model->org_deny($id);
+        if($success){
+                $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('new_customer_deny_success').'</div>');
+        }
         redirect('admin/info/view_organisation_message', 'location', 301);
     }
 
@@ -544,57 +546,121 @@ class info extends BaseController {
         redirect('admin/info/view_organisation_message', 'location', 301);
     }
 
-    function approve_org($id) {
-        $this->data['mainTab'] = 'inbox';
-        $this->data['activeTab'] = 'message';
-        $data = array(
-            'approval_status' => 2,
-            'login_status' => 1
-        );
-        $this->info_model->update_org_approve($data, $id);
-        $this->data['query1'] = $this->info_model->get_userdata($id);
-        foreach ($this->data['query1'] as $user_info):
-            $payment_amount = $user_info->payment_amount;
-            $email = $user_info->email;
-            $fname = $user_info->first_name;
-            $lname = $user_info->last_name;
-        endforeach;
-        $data = array(
-            'approval_status' => 2
-        );
-        $this->info_model->update_org_approve($data, $id);
-		
-        /*$this->load->library('email');
-        $this->email->from('info@onlineassociation.com', 'Confirmation for payment');
-        $this->email->to($email);
-        $this->email->subject('Confirmation');
-        $this->email->message("Dear $fname $lname Thanks for registration.your registration 		
-		approved successfully.Please Click the below link for payment href=" . base_url() . "main/view_payment_package/" . $id . "");
-        $this->email->send();*/
-        
-		 $to = $email;
-		 $subject ="Confirmation";
-		 $txt = "Dear $fname $lname Thanks for registration.your registration aproved successfully.
-         Please Click the below link for payment href=" . base_url() . "main/view_payment_package/" . $id;
-		 $headers = "From: info@onlineassociation.com" ."\r\n";
-         mail($to, $subject, $txt, $headers);
-		
+    function approve_org($org_id) {
+        $this->data['mainTab'] = 'orders';
+        $this->data['activeTab'] = 'message';   
+        $this->lang->load('orders', $this->session->userdata('lang_file'));
+        $package_info =  $this->info_model->get_package_info($org_id);        
+        if($package_info){
+            foreach($package_info as $row){
+                $package_duration = $row->duration;
+                $total_days = $package_duration*30;
+            }
+        }
+             
+       $expire_date= time() + ($total_days * 24 * 60 * 60);
+       $data = array('approval_status' =>1, 'payment_status' =>1,'activation_date'=>time(),'expire_date'=>$expire_date);     
+       $success = $this->info_model->update_org_approve($data, $org_id);
+        if($success){         
+            $org_info = $this->info_model->get_new_customer_orders($org_id);
+            foreach($org_info as $rows){
+                $data['first_name']=$rows->first_name;
+                $data['org_number']=$rows->org_number;
+                $data['org_name']=$rows->org_name;
+                $data['username']=$rows->username;
+                $data['email']=$rows->email;
+                $data['org_phone']=$rows->org_phone;                
+                $data['password']= $this->decrypt($rows->password,"vaccitvassit");    
+                if($rows->password_receive_by_email){                                             
+                    $this->send_password_by_email($data);
+                }
+                if($rows->password_receive_by_sms){
+                    $this->send_password_by_sms($data);
+                }   
+            }
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('new_customer_approve_success').'</div>');
+       }
         redirect('admin/info/view_organisation_message', 'location', 301);
     }
 
     function view_registered_customer() {
         $this->lang->load('customer', $this->session->userdata('lang_file'));
+        $this->lang->load('orders', $this->session->userdata('lang_file'));
         $this->data['mainTab'] = 'customer';
         $this->data['activeTab'] = 'customer';
-        $this->data['query1'] = $this->info_model->get_registered_customer();
+        $this->data['query1'] = $this->info_model->get_registered_customer($org_id="");
         $this->data['dynamicView'] = 'pages/admin/registered_customer/view';
         $this->_commonPageLayout('frontend_viewer');
-    }
+}
+
+
+/**
+ * View Org_Bank Details
+ *
+ * @Param $org_id which contains org_id
+ *@access public
+ *@return Org_Bank Details
+ */ 
+ 
+ function view_org_bank_details($org_id) {
+        $this->lang->load('customer', $this->session->userdata('lang_file'));
+        $this->lang->load('orders', $this->session->userdata('lang_file'));
+        $this->data['mainTab'] = 'customer';
+        $this->data['activeTab'] = 'customer';
+        $this->data['query1'] = $this->info_model->get_registered_customer($org_id);                
+        $this->data['dynamicView'] = 'pages/admin/registered_customer/bank_details';
+        $this->_commonPageLayout('frontend_viewer');
+}
+
+/**
+ * Deactivate Organization by updating the field of Table: organization_info , Field: org_blocked, Value=1
+ *
+ * @Param $org_id which contains org_id
+ *@access public
+ *@return Confirmation/Error Message
+ */ 
+ 
+ function deactivate_org($org_id) {      
+        $data = array('org_blocked'=>1);
+        $success = $this->info_model->update_org_approve($data,$org_id);  
+        if($success){
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_deactivation_success').'</div>');
+        }
+       else{
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_deactivation_failure').'</div>');
+        }
+    redirect('admin/info/view_registered_customer', 'location', 301);
+}
+
+
+/**
+ * Activate Organization by updating the field of Table: organization_info , Field: org_blocked, Value=0
+ *
+ * @Param $org_id which contains org_id
+ *@access public
+ *@return Confirmation/Error Message
+ */ 
+ 
+ function activate_org($org_id) {      
+        $data = array('org_blocked'=>0);
+        $success = $this->info_model->update_org_approve($data,$org_id);  
+        if($success){
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_activation_success').'</div>');
+        }
+       else{
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_activation_failure').'</div>');
+        }
+    redirect('admin/info/view_registered_customer', 'location', 301);
+}
 
     function view_org_detail($org_id) {
-        $this->data['mainTab'] = 'organization';
-        $this->data['activeTab'] = 'org';
-        $this->data['org_id'] = $org_id;
+        $this->lang->load('customer', $this->session->userdata('lang_file'));
+        $this->lang->load('orders', $this->session->userdata('lang_file'));
+        $this->data['mainTab'] = 'customer';
+        $this->data['activeTab'] = 'customer';
+        $this->data['query1'] = $this->info_model->get_registered_customer($org_id);        
+        
+        //$this->data['org_id'] = $org_id;
         $this->data['dynamicView'] = 'pages/admin/org_profile';
         $this->_commonPageLayout('frontend_viewer');
     }
@@ -1051,6 +1117,7 @@ class info extends BaseController {
         $this->lang->load('customer', $this->session->userdata('lang_file'));
         $this->data['mainTab'] = 'customer';
         $this->data['activeTab'] = 'customer';
+        
         $form_data = array(
         'package_name' => "",
         'org_number' => "",
@@ -1063,7 +1130,8 @@ class info extends BaseController {
         'org_city' => "",
         'org_country' => "",
         'org_bank_acc_no' => "",
-        'org_bank_acc_type' => ""
+        'org_bank_acc_type' => "",
+        'add_date' =>""
        );
        
         $data['package_info'] = $this->info_model->get_package($id="");
@@ -1084,7 +1152,8 @@ class info extends BaseController {
         $this->data['mainTab'] = 'customer';
         $this->data['activeTab'] = 'customer';
         $data['package_info'] = $this->info_model->get_package($id="");
-        
+        $to_date = date("Y-m-d H:i:s"); 
+                
         $form_data = array(
         'package_name' => $this->input->post("package_name"),
         'org_number' => $this->input->post("org_number"),
@@ -1097,7 +1166,8 @@ class info extends BaseController {
         'org_city' => $this->input->post("org_city"),
         'org_country' => $this->input->post("org_country"),
          'org_bank_acc_no' => $this->input->post("org_bank_acc_no"),
-        'org_bank_acc_type' =>$this->input->post("org_bank_acc_type")
+        'org_bank_acc_type' =>$this->input->post("org_bank_acc_type"),
+        'add_date' =>$to_date
        );
     
        $form_data_one['organization_data'] = $form_data;
@@ -1135,7 +1205,8 @@ class info extends BaseController {
                     'zip' => "",
                     'city' => "",
                     'country' => "",
-                    'password_receive_by' =>""
+                    'password_receive_by' =>"",
+                    'add_date' =>""
                    );
                 $this->load->vars($form_data_step2);
                 $this->data['dynamicView'] = 'pages/admin/new_customer/entry_step2';
@@ -1153,17 +1224,17 @@ class info extends BaseController {
  function added_customer_step3($start=0) {  
  
         $data_organization['organization_data'] = $this->input->post("organization_data");
-        
+                
         if(sizeof($data_organization['organization_data'])<=1){
             redirect("admin/info/add_customer");
-        }
-    
+        }   
         
         $this->lang->load('customer', $this->session->userdata('lang_file'));
         $this->data['mainTab'] = 'customer';
         $this->data['activeTab'] = 'customer';
-               
-        $admin_user_data = array(
+        $to_date = date("Y-m-d H:i:s"); 
+        $form_data_step2 = array(
+                    
                     'first_name' => $this->input->post("first_name"),
                     'last_name' => $this->input->post("last_name"),
                     'phone_no' => $this->input->post("phone_no"),
@@ -1176,13 +1247,17 @@ class info extends BaseController {
                     'city' => $this->input->post("city"),
                     'country' => $this->input->post("country"),
                     'password_receive_by_email' =>$this->input->post("password_receive_by_email"),
-                    'password_receive_by_sms' =>$this->input->post("password_receive_by_sms")
+                    'password_receive_by_sms' =>$this->input->post("password_receive_by_sms"),
+                    'add_date' =>$to_date
                    );
+                   
+        //print_r($form_data_step2);
         
-        
-       $this->load->vars($data_organization);     
-       $this->load->vars($admin_user_data);     
-             
+        $data_admin_user['admin_user_data'] = $form_data_step2;
+        $this->load->vars($form_data_step2);   
+        $this->load->vars($data_admin_user);     
+        $this->load->vars($data_organization);     
+      
         $this->load->library('form_validation');        
         $this->form_validation->set_rules('first_name', $this->lang->line('label_first_name'), 'trim|required');
         $this->form_validation->set_rules('last_name',$this->lang->line('label_last_name'), 'trim|required');
@@ -1194,30 +1269,133 @@ class info extends BaseController {
         $this->form_validation->set_rules('zip', $this->lang->line('label_zip'), 'trim|required|xss_clean');
         $this->form_validation->set_rules('city', $this->lang->line('label_city'), 'trim|required|xss_clean');
         $this->form_validation->set_rules('country', $this->lang->line('label_country'), 'trim|required|xss_clean');
-        if(empty($admin_user_data['password_receive_by_email']) && empty($admin_user_data['password_receive_by_sms'])){
-            $this->form_validation->set_rules('password_receive_by_email', $this->lang->line('label_password_receive_by'), 'trim|required|xss_clean');
+        if(empty($form_data_step2['password_receive_by_email']) && empty($form_data_step2['password_receive_by_sms'])){
+           $this->form_validation->set_rules('password_receive_by_sms', $this->lang->line('label_password_receive_by'), 'trim|required|xss_clean');
         }
-                
+       
         if ($this->form_validation->run() == FALSE) {
             $this->data['dynamicView'] = 'pages/admin/new_customer/entry_step2';
             $this->_commonPageLayout('frontend_viewer');
         } else {
-                ///load form2
-                 $form_data_step2= array(
-                    'first_name' => "",
-                    'last_name' => "",
-                    'phone_no' => "",
-                    'email' => "",
-                    'username' => "",
-                    'person_number' => "",
-                    'primary_address' => "",
-                    'optional_address' => "",
-                    'zip' => "",
-                    'city' => "",
-                    'country' => ""
-                   );
-                $this->load->vars($form_data_step2);
-                $this->data['dynamicView'] = 'pages/admin/new_customer/entry_step2';
+                ///load form3  'use_account_info_billing' => "use_account_info_billing", 'billing_terms_condition' => "",
+                $form_data_step3 = array(
+                    'billing_terms_condition' => "",
+                    'bill_first_name' => $this->input->post("first_name"),
+                    'bill_last_name' => $this->input->post("last_name"),
+                    'bill_phone_no' => $this->input->post("phone_no"),
+                    'bill_email' => $this->input->post("email"),
+                    'bill_primary_address' => $this->input->post("primary_address"),
+                    'bill_optional_address' => $this->input->post("optional_address"),
+                    'bill_zip' => $this->input->post("zip"),
+                    'bill_city' => $this->input->post("city"),
+                    'bill_country' => $this->input->post("country"),
+                    'add_date' =>""
+                );
+                
+                $this->load->vars($form_data_step3);   
+                $this->data['dynamicView'] = 'pages/admin/new_customer/entry_step3';
+                $this->_commonPageLayout('frontend_viewer');
+        }
+}
+
+/**
+ * New Customer Registration Form:Step4 and it's final step
+ *
+ *@access public
+ *@return Confirmation or Error Message
+ */
+ function added_customer_step4($start=0) {  
+ 
+        $data_organization['organization_data'] = $this->input->post("organization_data");       
+        $data_admin_user['admin_user_data'] = $this->input->post("admin_user_data");
+       
+        if(sizeof($data_organization['organization_data'])<=1 || sizeof($data_admin_user['admin_user_data'])<=1){
+            redirect("admin/info/add_customer");
+        }   
+        
+        $this->lang->load('customer', $this->session->userdata('lang_file'));
+        $this->data['mainTab'] = 'customer';
+        $this->data['activeTab'] = 'customer';
+        $to_date = date("Y-m-d H:i:s"); 
+        $form_data_step4 = array(
+                    'payment_method' => $this->input->post("payment_method"),
+                    'bill_first_name' => $this->input->post("bill_first_name"),
+                    'bill_last_name' => $this->input->post("bill_last_name"),
+                    'bill_phone_no' => $this->input->post("bill_phone_no"),
+                    'bill_email' => $this->input->post("bill_email"),
+                    'bill_primary_address' => $this->input->post("bill_primary_address"),
+                    'bill_optional_address' => $this->input->post("bill_optional_address"),
+                    'bill_zip' => $this->input->post("bill_zip"),
+                    'bill_city' => $this->input->post("bill_city"),
+                    'bill_country' => $this->input->post("bill_country"),
+                    'billing_terms_condition' => $this->input->post("billing_terms_condition"),
+                    'add_date' =>$to_date
+                   );                   
+        
+        $data_billing_address['billing_address_data'] = $form_data_step4;
+        $this->load->vars($form_data_step4);   
+        $this->load->vars($data_admin_user);  
+        $this->load->vars($data_organization);     
+             
+        $this->load->library('form_validation');        
+        $this->form_validation->set_rules('bill_first_name', $this->lang->line('label_first_name'), 'trim|required');
+        $this->form_validation->set_rules('bill_last_name',$this->lang->line('label_last_name'), 'trim|required');
+        $this->form_validation->set_rules('bill_phone_no', $this->lang->line('label_phone'), 'trim|required');
+        $this->form_validation->set_rules('bill_email', $this->lang->line('label_email'), 'trim|required|valid_email|xss_clean|callback_email_check');
+        $this->form_validation->set_rules('bill_primary_address', $this->lang->line('label_address_line_one'), 'trim|required|xss_clean');
+        $this->form_validation->set_rules('bill_zip', $this->lang->line('label_zip'), 'trim|required|xss_clean');
+        $this->form_validation->set_rules('bill_city', $this->lang->line('label_city'), 'trim|required|xss_clean');
+        $this->form_validation->set_rules('bill_country', $this->lang->line('label_country'), 'trim|required|xss_clean');
+        //$this->form_validation->set_message('required', $this->lang->line('label_billing_terms_condition'));
+        $this->form_validation->set_rules('billing_terms_condition', $this->lang->line('label_billing_terms_condition'), 'trim|xss_clean|callback_billing_terms_condition_check');
+                     
+        if ($this->form_validation->run() == FALSE) {
+                $billing_data = $this->input->post("admin_user_data");
+                $form_data_billing = array(
+                        'billing_terms_condition' => "",
+                        'bill_first_name' => $billing_data["first_name"],
+                        'bill_last_name' => $billing_data["last_name"],
+                        'bill_phone_no' => $billing_data["phone_no"],
+                        'bill_email' => $billing_data["email"],
+                        'bill_primary_address' => $billing_data["primary_address"],
+                        'bill_optional_address' => $billing_data["optional_address"],
+                        'bill_zip' => $billing_data["zip"],
+                        'bill_city' => $billing_data["city"],
+                        'bill_country' => $billing_data["country"],
+                        'add_date' =>$to_date
+                    );                
+                $this->load->vars($form_data_billing);  
+            
+            $this->data['dynamicView'] = 'pages/admin/new_customer/entry_step3';
+            $this->_commonPageLayout('frontend_viewer');
+        } else {
+                ///Organization Registration Final Step
+                $data_global_settings['global_settings_data'] = $this->info_model->get_global_settings();
+               // print_r($data['global_settings_data']);
+                if($data_global_settings['global_settings_data']){
+                    foreach($data_global_settings['global_settings_data'] as $rows){
+                        $data_organization['organization_data']['org_allowed_sms_per_month'] = $rows->allowed_sms_per_month;
+                        $data_organization['organization_data']['org_allowed_letter_per_month'] = $rows->allowed_letter_per_month;
+                    }                    
+                }             
+                $first_name = $data_admin_user['admin_user_data']['first_name'];
+                $rand_no = mt_rand(1000000000, 2000000000);
+                $first_name = substr($first_name, 0, 2);
+                $password = $first_name . $rand_no;
+                $password = $this->encrypt($password,'vaccitvassit');
+                $data_admin_user['admin_user_data']['password'] = $password;
+                $data_admin_user['admin_user_data']['admin_user'] = 1;
+                
+                 
+                //$rand_pass = base64_encode($c);                 
+                $success = $this->info_model->register_organisation($data_organization['organization_data'],$data_admin_user['admin_user_data'],$form_data_step4);
+                //$this->load->vars($form_data_step3);
+                if($success){
+                    $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_registration_success').'</div>');
+                    redirect('admin/info/view_registered_customer');
+                    //$this->data['dynamicView'] = 'pages/admin/new_customer/org_registration_success';
+                }
+                else{$this->data['dynamicView'] = 'pages/admin/new_customer/entry_step3';}                
                 $this->_commonPageLayout('frontend_viewer');
         }
     }
@@ -1279,5 +1457,157 @@ function check_person_number1($person_number) {
         }
 
         return $result;
+}
+
+function billing_terms_condition_check($billing_terms_condition) {
+        
+        if ($billing_terms_condition=="") {
+            $this->form_validation->set_message('billing_terms_condition_check', $this->lang->line('label_billing_terms_condition'));
+            return FALSE;
+        }
+        else
+            return TRUE;
+}
+
+/**
+ * Send password to org_admin by E-mail
+ *
+ *@access public
+ *@return Confirmation or Error Message
+ */
+ 
+function send_password_by_email($data){
+    $this->lang->load('common', $this->session->userdata('lang_file'));                
+    $emailfrom ="admin@adminscentral.com";       
+    $subject=$this->lang->line('email_registration_confirmation_subject')."\n\n";	
+	$message  = "<html><body>";
+    $message .="<table cellpadding='0' cellspacing='0' bgcolor=#319d00 width='100%' style='margin:0 auto'><tr style='font-family: Verdana,Arial,Helvetica,sans-serif; font-size: 11px; color: rgb(255,255,255); line-height: 140%;'><td width='23'></td><td><span>".$this->lang->line('site_logo')."</span></td></tr></table>"."\n\n";
+	$message .= "<table cellpadding='0' cellspacing='0' width='660' style='margin:0 auto'><br/><br/>";
+	$message .= "<tr><td font-family: Arial,Helvetica,sans-serif; padding-top:18px; font-size:25px; color:rgb(102,102,102);><b>".$this->lang->line('email_registration_confirmation_subject')."</b></td></tr></table>"."\n";
+	$message .="<p>".$this->lang->line('email_registration_confirmation_dear')." ".$data['first_name'].",</p>"."\n";
+    $message .="<p>".$this->lang->line('email_registration_confirmation_congratulation_msg')."</p>"."\n";
+	
+    $message .= "<p>".$this->lang->line('email_registration_confirmation_org_details_msg').": </p>\n";
+    $message .="<p><b>".$this->lang->line('label_organization'). " ".$this->lang->line('label_no').":  </b>".$data['org_number']."</p>\n";
+	$message .="<p><b>".$this->lang->line('label_organization'). " ".$this->lang->line('label_name').":   </b>".$data['org_name']."</p>\n";
+	$message .="<p><b>".$this->lang->line('label_admin_user').": </b>".$data['username']."</p>\n";
+	$message .="<p><b>".$this->lang->line('label_password').": </b>".$data['password']."</p>\n\n";
+	$message .="<p>".$this->lang->line('org_site_link_msg').": </p>\n";
+    $message .="<a style='font-weight:bold;font-size:14px;' href='".base_url()."'>".base_url()."</a></p>"."\n";
+    
+	$message .="<table cellpadding='0' cellspacing='0' bgcolor=#319d00 width='100%' style='margin:0 auto'><tr style='font-family: Verdana,Arial,Helvetica,sans-serif; font-size: 11px; color: rgb(255,255,255); line-height: 140%;'><td width='23'></td><td><span>".$this->lang->line('site_logo')."</span></td></tr></table>"."\n\n";
+	$message .= "</body></html>\n";
+	
+	
+    $header  = "From: ". $this->lang->line('site_logo')."<".$emailfrom.">\r\n";
+    $header .= "Reply-To:".$emailfrom."\r\n";
+    
+    $uid = md5(uniqid(time()));
+    $header .= "MIME-Version: 1.0\r\n";
+    $header .= "Content-Type: multipart/mixed; boundary=\"".$uid."\"\r\n\r\n";
+    $header .= "This is a multi-part message in MIME format.\r\n";
+    $header .= "--".$uid."\r\n";
+    $header .= "Content-type:text/html; charset=iso-8859-1\r\n";
+    $header .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+    $header .= $message."\r\n\r\n";
+    $header .= "--".$uid."\r\n";
+    $header .= "Content-Transfer-Encoding: base64\r\n";
+  
+    //echo $message;
+    
+    //echo $data['member_email'];
+    
+	if(mail($data['email'], $subject,"",$header))
+	 {   
+          $data=array();
+     	  $data['msg2']="Your registration successful !! A confirmation email sent to your email with your login information.";
+	 }
+	else
+	{
+		 $data['msg2']="";
+	}
+    
+    return $data;    
+}
+
+
+
+ /**
+ *Load restriction_on_sms_letter Form
+ *
+ *@param $org_id which conatins org_id
+ *@access public
+ *@return restriction_on_sms_letter Form
+ */ 
+    function restriction_on_sms_letter($org_id) {
+        $this->lang->load('configuration', $this->session->userdata('lang_file'));
+        $data['mainTab'] = 'customer';
+        $data['activeTab'] = 'customer';
+        $data['org_id'] = $org_id;
+        $data['query1'] = $this->info_model->get_registered_customer($org_id);    
+        $this->load->vars($data);	
+        $this->data['dynamicView'] = 'pages/admin/registered_customer/restriction_on_sms_letter';
+        $this->_commonPageLayout('frontend_viewer');
+}
+
+/**
+ *Update Organization by Setting the field of Table: organization_info , field1: org_allowed_sms_per_month,field2: org_allowed_letter_per_month
+ *
+ *@access public
+ *@return restriction_on_sms_letter Form
+ */ 
+    function restriction_on_sms_letter_saved() {        
+        $org_id = $this->input->post("org_id");
+        $data = array('org_allowed_sms_per_month'=>$this->input->post("org_allowed_sms_per_month"),
+                                'org_allowed_letter_per_month'=>$this->input->post("org_allowed_letter_per_month") );
+        $success = $this->info_model->update_org_approve($data,$org_id);  
+        if($success){
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_sms_letter_restriction_success').'</div>');
+        }
+       else{
+            $this->session->set_flashdata('message', '<div id="message1">'.$this->lang->line('org_sms_letter_restriction_failure').'</div>');
+        }
+    redirect('admin/info/view_registered_customer', 'location', 301);
+}
+
+/**
+ * Send password to org_admin by SMS
+ *
+ *@access public
+ *@return Confirmation or Error Message
+ */
+function send_password_by_sms($data){
+    $this->lang->load('common', $this->session->userdata('lang_file'));
+    $konto = "ip1-1868";  //username
+    $pass = "y5lhyp0q";
+    $from_phone = "";
+    $content ="<p>".$this->lang->line('email_registration_confirmation_dear')." ".$data['first_name'].",</p>"."\n";
+    $content .="<p>".$this->lang->line('email_registration_confirmation_congratulation_msg')."</p>"."\n";
+	$content .="<p><b>".$this->lang->line('label_organization'). " ".$this->lang->line('label_name').":   </b>".$data['org_name']."</p>\n";
+	$content .="<p><b>".$this->lang->line('label_admin_user').": </b>".$data['username']."</p>\n";
+	$content .="<p><b>".$this->lang->line('label_password').": </b>".$data['password']."</p>\n\n";
+	$content .="<p>".$this->lang->line('org_site_link_msg').": </p>\n";
+    $content .="<a style='font-weight:bold;font-size:14px;' href='".base_url()."'>".base_url()."</a></p>"."\n";
+    $priority = 2;
+    $c = $this->multiple_receipient($konto, $pass, $from_phone, $data['org_phone'], $content, $priority);
+}
+
+function multiple_receipient($konto, $pass, $from, $phone_number, $content, $priority) {
+        $proxyhost = "";
+        $proxyport = "";
+        $proxyusername = "";
+        $proxypassword = "";
+        require_once(APPPATH . 'libraries/nusoap/nusoap' . EXT);
+        $params = array('konto' => $konto, 'passwd' => $pass, 'till' => trim($phone_number), 'from' => $from, 'meddelande' => $content, 'prio' => $priority);
+        // echo "<pre>";print_r($params);die();
+        $wsdlurl = "http://web.smscom.se/sendSms/sendSms.asmx?WSDL";
+        //$client = new nusoap_client($wsdlurl, 'wsdl');
+        $client = new nusoap_client($wsdlurl, 'wsdl', $proxyhost, $proxyport, $proxyusername, $proxypassword);
+        $client->authtype = 'certificate';
+        $client->decode_utf8 = 0;
+        $client->soap_defencoding = 'UTF-8';
+        $result = $client->call("sms", $params);
+        return $result['smsResult'];
     }
+
 }

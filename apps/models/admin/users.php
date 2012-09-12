@@ -100,7 +100,13 @@ class Users extends Model {
     function check_email1($email) {
         $this->db->select('1', FALSE);
         $this->db->where('LOWER(email)=', strtolower($email));
-        return $this->db->get('user_info');
+        $result = $this->db->get('member');
+        if($result->num_rows()==0){
+            $this->db->select('1', FALSE);
+             $this->db->where('LOWER(email)=', strtolower($email));
+            return $this->db->get('admin_users');
+        }
+        else{return $result;}              
     }
 
     function check_org_category($category, $id1) {
@@ -113,13 +119,13 @@ class Users extends Model {
     function check_org_name($org_name) {
         $this->db->select('1', FALSE);
         $this->db->where('LOWER(org_name)=', strtolower($org_name));
-        return $this->db->get('user_info');
+        return $this->db->get('organization_info');
     }
 
 function check_org_no($org_no) {
         $this->db->select('1', FALSE);
         //$this->db->where('org_number=',$org_no);
-        return $this->db->get_where('user_info', array('org_number' => $org_no));   
+        return $this->db->get_where('organization_info', array('org_number' => $org_no));   
         //return $this->db->get('user_info'); 
 }
 
@@ -153,8 +159,13 @@ function check_org_no($org_no) {
     function check_uname($username) {
         $this->db->select('1', FALSE);
         $this->db->where('LOWER(username)=', strtolower($username));
-
-        return $this->db->get('user_info');
+        $result = $this->db->get('member');
+        if($result->num_rows()==0){
+            $this->db->select('1', FALSE);
+            $this->db->where('LOWER(username)=', strtolower($username));
+            return $this->db->get('admin_users');
+        }
+        else{return $result;}       
     }
 
     function check_org_group($group_name, $org_id) {
@@ -187,9 +198,15 @@ function check_org_no($org_no) {
     function check_person_number1($person_number){
         $this->db->select('1', FALSE);
         $this->db->where('LOWER(person_number)=', strtolower($person_number));
-        return $this->db->get('user_info');
-   
-   }
+        $result = $this->db->get('member');
+        if($result->num_rows()==0){
+            $this->db->select('1', FALSE);
+            $this->db->where('LOWER(person_number)=', strtolower($person_number));
+            return $this->db->get('admin_users');
+        }
+        else{return $result;}
+    }
+
     function check_member_email($email) {
         $this->db->select('1', FALSE);
         $this->db->where('LOWER(email)=', strtolower($email));

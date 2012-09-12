@@ -6,6 +6,7 @@ class Home extends BaseController {
 
     public function __construct() {
         parent::__construct();
+        $this->lang->load('common', $this->session->userdata('lang_file'));
         $this->siteTitle = 'Account Soft | ';
     }
 

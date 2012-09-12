@@ -14,7 +14,22 @@ abstract class BaseController extends Controller {
 
     function __construct() {
         parent::Controller();
+        $lang=array();	
+        if(isset($_REQUEST['site_language'])){
+            $lang['lang_file']=$_REQUEST['site_language'];
+        }
+        if(empty($lang) && ($this->session->userdata('lang_file')=="")){
+             $lang['lang_file'] = "sv";
+             $this->session->set_userdata($lang);
+        //$_SESSION['site_language']= "sw";
+        }
+        elseif((!empty($lang) && ($this->session->userdata('lang_file')!="")) && ($this->session->userdata('lang_file')!=$lang['lang_file'])){
+            $this->session->set_userdata($lang);
+        }
 
+        $this->lang->load('common', $this->session->userdata('lang_file'));
+        $this->lang->load('language', $this->session->userdata('lang_file'));
+        
         $this->load->library('layout');
         $this->layout->setLayout('frontend');
         $this->p_config['base_url'] = base_url();
@@ -36,6 +51,22 @@ abstract class BaseController extends Controller {
             $this->load->library('firephp_fake');
             $this->firephp = & $this->firephp_fake;
         }
-    }
+}
+
+//password encryption
+//$text=PlainText password
+//$salt=vaccitvassit
+
+    function encrypt($text,$salt) 
+    { 
+        return trim(base64_encode(mcrypt_encrypt(MCRYPT_RIJNDAEL_256,$salt, $text, MCRYPT_MODE_ECB, mcrypt_create_iv(mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB), MCRYPT_RAND)))); 
+    } 
+//password decryption
+//$text=Encrypted password
+//$salt=vaccitvassit
+    function decrypt($text,$salt) 
+    { 
+        return trim(mcrypt_decrypt(MCRYPT_RIJNDAEL_256,$salt, base64_decode($text), MCRYPT_MODE_ECB, mcrypt_create_iv(mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB), MCRYPT_RAND))); 
+    } 
 
 }

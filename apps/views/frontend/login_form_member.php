@@ -16,16 +16,29 @@
 </div>
 
 <div style="width:200px; float:right; padding-top:5px; padding-left:20px; color:green; font-size:18px;">
-<a href="<?php echo base_url(); ?>main/add_org">
-<button>Organization Registration</button>
+<a href="<?php echo base_url(); ?>main/add_customer">
+<button><?php echo $this->lang->line('org_registration_link');?></button>
 <!--<img src="<?php echo base_url(); ?>public/images/organization_-registration.png" alt="" border="0" >
 --></a>
 </div>
 <div class="container_16">
   <div class="grid_6 prefix_5 suffix_5">
-   	  <h1>Member - Login</h1>
+      <h1><?php echo $this->lang->line('member_login_header');?></h1>
     	<div id="login">
-    	
+    	 <!-- Start: languagebg-->
+			<div class="languagebg">
+					<form name="langselect" id="langselect" method="post">                        
+						<select name="site_language" onChange="document.langselect.submit()" class="selang"> 
+							<option value="sv" <?php if($this->session->userdata('lang_file')!=""       && $this->session->userdata('lang_file')=="sv"){?> selected="selected" <?php }?>> <?php echo $this->lang->line('sv_lang');?></option> 
+							<option value="engus" <?php if($this->session->userdata('lang_file')!=""      && $this->session->userdata('lang_file')=="engus"){?> selected="selected" <?php }?>><?php echo $this->lang->line('eng_us_lang');?></option> 
+							<option value="enguk" <?php if($this->session->userdata('lang_file')!=""  && $this->session->userdata('lang_file')=="enguk"){?> selected="selected" <?php }?>><?php echo $this->lang->line('eng_uk_lang');?></option> 
+							<option value="ger" <?php if($this->session->userdata('lang_file')!=""       && $this->session->userdata('lang_file')=="ger"){?> selected="selected" <?php }?>><?php echo $this->lang->line('ger_lang');?></option> 
+							<option value="nor" <?php if($this->session->userdata('lang_file')!=""       && $this->session->userdata('lang_file')=="nor"){?> selected="selected" <?php }?>><?php echo $this->lang->line('nor_lang');?></option> 
+							<option value="den" <?php if($this->session->userdata('lang_file')!=""       && $this->session->userdata('lang_file')=="den"){?> selected="selected" <?php }?>><?php echo $this->lang->line('den_lang');?></option> 
+							<option value="fin" <?php if($this->session->userdata('lang_file')!=""         && $this->session->userdata('lang_file')=="fin"){?> selected="selected" <?php }?>><?php echo $this->lang->line('fin_lang');?></option> 
+						</select>
+					</form>
+            </div> <!-- End: languagebg-->
           <p class="error"> <?php echo $this->session->flashdata('message'); ?></p>        
     	 <?php echo form_open('home/process_login'); ?>
     	    <p>
